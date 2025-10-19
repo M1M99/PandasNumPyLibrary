@@ -1,10 +1,10 @@
 import numpy
 import pandas as pd
 import matplotlib.pyplot as plt
+from scipy.stats import zscore
 
 df = pd.read_csv('data.csv')
 print(df)
-
 # 20 Task
 # 1.	Sürətli baxış:
 # ○	head(5), tail(5) və sample(3) ilə datasetə bax.
@@ -139,20 +139,54 @@ print(condition_apartments,average_price)
 #
 # ○	groupby("District")["Price_AZN"].agg(["mean","median","count"]) hesabla.
 #
+district_stats = df.groupby("District")["Price_AZN"].agg(["mean", "median", "count"]).sort_values(by="mean", ascending=False)
+print('Task 12',district_stats)
 # ○	Sual: Harada median mean-dən xeyli fərqlənir və niyə?
-#
+
+# Sabayilde 1.5 milyonluq ev butun ortalamani deyisir, amma median sabit qalir (315.900)
+# Mean(656233.333333)  median(315900.0) sebail outlierdi ona gore
 # 12.	Outlier aşkarlanması (IQR):
 #
 # ○	Price_AZN üçün Q1, Q3, IQR, lower/upper bound hesabla və “çıxışda” qalan sətirləri göstər.
 #
 # ○	Qeyd: Bunları avtomatik filtr kimi tətbiq et.
-#
+
+Q1 = df['Price_AZN'].quantile(0.25)
+Q3 = df['Price_AZN'].quantile(0.75)
+IQR = Q3 - Q1
+
+lower_bound = Q1 - 1.5 * IQR
+upper_bound = Q3 + 1.5 * IQR
+
+outliers_iqr = df[(df['Price_AZN'] < lower_bound) | (df['Price_AZN'] > upper_bound)]
+print("IQR Outliers:")
+print(outliers_iqr[['District', 'Rooms', 'Area_m2', 'Price_AZN']])
+
+print(f"\nLower Bound: {lower_bound}, Upper Bound: {upper_bound}")
+print(f"Total outliers by IQR: {len(outliers_iqr)}")
+
+df_filtered = df[(df['Price_AZN'] >= lower_bound) & (df['Price_AZN'] <= upper_bound)]
+print("\nFiltered (Clean) DataFrame:")
+print(df_filtered[['District', 'Rooms', 'Area_m2', 'Price_AZN']].head())
+
+print(f"\nOriginal count: {len(df)}, Clean count: {len(df_filtered)}")
+
 # 13.	Outlier aşkarlanması (Z-score):
 #
 # ○	zscore(Price_AZN) hesabla və |z|>3 sətirləri tap.
 #
 # ○	Nəticə: IQR və Z-score nəticələri eyni sətirləri göstərirmi?
-#
+
+
+# df['Zscore'] = zscore(df['Price_AZN'])
+df['Zscore'] = (df['Price_AZN'] - df['Price_AZN'].mean()) / df['Price_AZN'].std()
+outliers_z = df[abs(df['Zscore']) > 3]
+
+print("Z-score Outliers:")
+print(outliers_z[['District', 'Rooms', 'Area_m2', 'Price_AZN', 'Zscore']])
+print(f"\nOutlier Count (Z-score): {len(outliers_z)}")
+print(f"Same Outliers IQR? - {set(outliers_z.index) == set(outliers_iqr.index)}")
+
 # 14.	Top 10 ən bahalı və ən ucuz evlər:
 sorted_home_by_price = df.sort_values(by='Price_AZN', ascending=False)
 print('Top 10:',sorted_home_by_price[['District','Price_AZN','Rooms']].head(10))
@@ -254,3 +288,17 @@ print(f"Clean median (without outliers): {clean_median}")
 # ○	shape, nulls per column, numeric describe, District count, mean/median Price, top-ppm 5 rows.
 #
 # ○	5 sətirlik nəticə şərhi əlavə et: “Nə gördün? Nələr risk/ fürsət yaradır?”
+print("\t\tMINI DATA REPORT")
+print(f"Shape: {df.shape}\n")
+
+print("Null values per column:")
+print(df.isnull().sum(), "\n")
+
+print("Numeric describe:")
+print(df.describe(), "\n")
+print("District count:")
+print(df['District'].value_counts(), "\n")
+print(f"Mean Price: {df['Price_AZN'].mean()}")
+print(f"Median Price: {df['Price_AZN'].median()}\n")
+print("Top 5 by Price per m² (ppm):")
+print(df.sort_values(by='ppm', ascending=False)[['District','Rooms','Area_m2','Price_AZN','ppm']].head(5))
